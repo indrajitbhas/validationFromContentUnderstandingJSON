@@ -2,6 +2,8 @@ __pycache__/
 *.pyc
 .venv/
 node_modules/
+package.json
 server.log
 fixtures/*.curated.json
 fixtures/*.bak
+.abacus.donotdelete
