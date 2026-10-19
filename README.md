@@ -6,7 +6,7 @@ Local 3-pane web app for reviewing and correcting OCR/extraction output from **A
 
 ## What it does
 
-- **Pane 1 (left):** raw analysis JSON (read-only, wrapped text, independent scrolling).
+- **Pane 1 (left):** raw analysis JSON (read-only, wrapped text, independent scrolling), hidden by default and shown with the **View analysis** button.
 - **Pane 2 (middle):** PDF viewer using **vendored PDF.js** (no CDN), with:
   - prev/next page
   - page number input

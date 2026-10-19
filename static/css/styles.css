@@ -21,8 +21,7 @@ body {
 }
 
 .app-header,
-.load-panel,
-.issues-panel {
+.collapsible-panel {
   background: var(--card);
   border-bottom: 1px solid var(--line);
   padding: 10px 14px;
@@ -32,11 +31,31 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 10px;
 }
 
 .app-header h1 {
   margin: 0;
   font-size: 20px;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-btn {
+  border: 1px solid #bfc9d8;
+  border-radius: 4px;
+  padding: 6px 10px;
+  background: #eef3ff;
+  cursor: pointer;
+}
+
+.header-btn[aria-pressed="true"] {
+  background: #dbeafe;
+  border-color: #93c5fd;
 }
 
 .badge {
@@ -47,10 +66,41 @@ body {
   font-size: 12px;
 }
 
-.load-panel h2,
-.issues-panel h2 {
-  margin: 0 0 8px;
+.panel-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  color: inherit;
+}
+
+.panel-title {
   font-size: 16px;
+  font-weight: 600;
+}
+
+.chevron {
+  font-size: 14px;
+  color: var(--muted);
+  transform-origin: center;
+  transition: transform 0.2s ease;
+}
+
+.collapsible-panel.collapsed .chevron {
+  transform: rotate(-90deg);
+}
+
+.panel-content {
+  margin-top: 8px;
+}
+
+.collapsible-panel.collapsed .panel-content {
+  display: none;
 }
 
 .row {
@@ -165,9 +215,30 @@ button:disabled {
   overflow: hidden;
 }
 
-#left-pane { flex: 0 0 33%; }
-#middle-pane { flex: 0 0 34%; }
-#right-pane { flex: 1 1 auto; }
+#left-pane {
+  flex: 0 0 33%;
+}
+
+#middle-pane {
+  flex: 0 0 34%;
+}
+
+#right-pane {
+  flex: 1 1 auto;
+}
+
+.panes.analysis-hidden #left-pane,
+.panes.analysis-hidden #splitter-1 {
+  display: none;
+}
+
+.panes.analysis-hidden #middle-pane {
+  flex: 0 0 50%;
+}
+
+.panes.analysis-hidden #right-pane {
+  flex: 1 1 auto;
+}
 
 .pane h3 {
   margin: 0;

@@ -2,6 +2,12 @@ import * as pdfjsLib from "/static/vendor/pdfjs/pdf.mjs";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = "/static/vendor/pdfjs/pdf.worker.mjs";
 
+const STORAGE_KEYS = {
+  loadPanelCollapsed: "pdf_review_tool:load_panel_collapsed",
+  issuesPanelCollapsed: "pdf_review_tool:issues_panel_collapsed",
+  analysisVisible: "pdf_review_tool:analysis_visible",
+};
+
 const state = {
   mode: null, // server | picker
   currentPdfPath: null,
@@ -17,6 +23,7 @@ const state = {
   curatedValid: false,
   issues: [],
   baseFolder: "",
+  analysisVisible: false,
 };
 
 const el = {
@@ -51,6 +58,14 @@ const el = {
   curPageKind: document.getElementById("cur-page-kind"),
   curPageStatus: document.getElementById("cur-page-status"),
   curPageText: document.getElementById("cur-page-text"),
+  panes: document.getElementById("panes"),
+  leftPane: document.getElementById("left-pane"),
+  middlePane: document.getElementById("middle-pane"),
+  rightPane: document.getElementById("right-pane"),
+  splitter1: document.getElementById("splitter-1"),
+  splitter2: document.getElementById("splitter-2"),
+  analysisToggleBtn: document.getElementById("toggle-analysis"),
+  collapsiblePanels: Array.from(document.querySelectorAll(".collapsible-panel")),
 };
 
 function setStatus(message, type = "neutral") {
@@ -66,6 +81,24 @@ function parseJsonError(err) {
     return `JSON parse error at line ${m[1]}, column ${m[2]}: ${msg}`;
   }
   return `JSON parse error: ${msg}`;
+}
+
+function loadBooleanFromStorage(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw == null) return fallback;
+    return raw === "true";
+  } catch {
+    return fallback;
+  }
+}
+
+function saveBooleanToStorage(key, value) {
+  try {
+    localStorage.setItem(key, String(Boolean(value)));
+  } catch {
+    // non-fatal
+  }
 }
 
 function getAnalysisPages(rawObj) {
@@ -122,9 +155,32 @@ function validateContentUnderstanding(rawObj) {
   }
 }
 
+function sanitizeCurated(curatedObj) {
+  if (!curatedObj || typeof curatedObj !== "object") return curatedObj;
+  if (!Array.isArray(curatedObj.pages)) return curatedObj;
+
+  curatedObj.pages.forEach((page) => {
+    if (!page || typeof page !== "object") return;
+
+    if (page.status !== "approved" && page.status !== "pending") {
+      page.status = "pending";
+    }
+
+    if (Array.isArray(page.words)) {
+      page.words.forEach((word) => {
+        if (word && typeof word === "object" && Object.prototype.hasOwnProperty.call(word, "status")) {
+          delete word.status;
+        }
+      });
+    }
+  });
+
+  return curatedObj;
+}
+
 function buildCuratedFromRaw(rawObj, pdfName, sourceJsonName) {
   const pages = getAnalysisPages(rawObj);
-  return {
+  const curated = {
     schema: "curated/1",
     document: {
       fileName: pdfName || "unknown.pdf",
@@ -140,7 +196,6 @@ function buildCuratedFromRaw(rawObj, pdfName, sourceJsonName) {
           text,
           original: text,
           confidence: Number.isFinite(conf) ? conf : null,
-          status: "pending",
           note: "",
         };
       });
@@ -154,6 +209,8 @@ function buildCuratedFromRaw(rawObj, pdfName, sourceJsonName) {
       };
     }),
   };
+
+  return sanitizeCurated(curated);
 }
 
 function syncEditorFromCurated() {
@@ -161,6 +218,7 @@ function syncEditorFromCurated() {
     el.curatedEditor.value = "";
     return;
   }
+  state.curatedObj = sanitizeCurated(state.curatedObj);
   el.curatedEditor.value = JSON.stringify(state.curatedObj, null, 2);
   validateCuratedEditor();
   rebuildPageEditorControls();
@@ -168,7 +226,7 @@ function syncEditorFromCurated() {
 
 function syncCuratedFromEditor() {
   const txt = el.curatedEditor.value;
-  state.curatedObj = JSON.parse(txt);
+  state.curatedObj = sanitizeCurated(JSON.parse(txt));
   rebuildPageEditorControls();
 }
 
@@ -182,7 +240,7 @@ function validateCuratedEditor() {
       throw new Error("Curated JSON must contain 'pages' array.");
     }
     state.curatedValid = true;
-    state.curatedObj = parsed;
+    state.curatedObj = sanitizeCurated(parsed);
     el.jsonError.textContent = "JSON valid.";
     el.jsonError.style.color = "#0a7a34";
     el.saveBtn.disabled = false;
@@ -354,13 +412,17 @@ function renderIssues() {
   for (const issue of state.issues) {
     const tr = document.createElement("tr");
     tr.className = "issue-row";
+    tr.setAttribute("role", "button");
+    tr.setAttribute("tabindex", "0");
+    tr.setAttribute("aria-label", `Go to page ${issue.page}`);
     tr.innerHTML = `
       <td>${issue.page}</td>
       <td>${escapeHtml(issue.snippet)}</td>
       <td>${issue.confidence == null ? "-" : Number(issue.confidence).toFixed(3)}</td>
       <td>${issue.reason}</td>
     `;
-    tr.addEventListener("click", async () => {
+
+    const openIssuePage = async () => {
       await jumpToPage(Number(issue.page));
       setStatus(`Jumped to page ${issue.page} from issue list.`, "ok");
       const pageStr = String(issue.page);
@@ -368,7 +430,16 @@ function renderIssues() {
         el.curPageSelect.value = pageStr;
         syncPageEditorFromSelection();
       }
+    };
+
+    tr.addEventListener("click", openIssuePage);
+    tr.addEventListener("keydown", async (evt) => {
+      if (evt.key === "Enter" || evt.key === " ") {
+        evt.preventDefault();
+        await openIssuePage();
+      }
     });
+
     el.issuesBody.appendChild(tr);
   }
 }
@@ -412,7 +483,7 @@ function syncPageEditorFromSelection() {
   const p = getSelectedCuratedPage();
   if (!p) return;
   el.curPageKind.value = p.kind || "unknown";
-  el.curPageStatus.value = p.status || "pending";
+  el.curPageStatus.value = p.status === "approved" ? "approved" : "pending";
   el.curPageText.value = p.text || "";
 }
 
@@ -420,13 +491,44 @@ function applyPageEditorToCurated() {
   const p = getSelectedCuratedPage();
   if (!p) return;
   p.kind = el.curPageKind.value;
-  p.status = el.curPageStatus.value;
+  p.status = el.curPageStatus.value === "approved" ? "approved" : "pending";
   p.text = el.curPageText.value;
   if (!state.curatedObj.document) state.curatedObj.document = {};
   state.curatedObj.document.updatedAt = new Date().toISOString();
 
+  state.curatedObj = sanitizeCurated(state.curatedObj);
   el.curatedEditor.value = JSON.stringify(state.curatedObj, null, 2);
   validateCuratedEditor();
+}
+
+function applyAnalysisVisibility(visible) {
+  state.analysisVisible = Boolean(visible);
+  el.panes.classList.toggle("analysis-hidden", !state.analysisVisible);
+  el.leftPane.setAttribute("aria-hidden", String(!state.analysisVisible));
+  el.splitter1.setAttribute("aria-hidden", String(!state.analysisVisible));
+  el.analysisToggleBtn.setAttribute("aria-pressed", String(state.analysisVisible));
+  el.analysisToggleBtn.textContent = state.analysisVisible ? "Hide analysis" : "View analysis";
+  saveBooleanToStorage(STORAGE_KEYS.analysisVisible, state.analysisVisible);
+}
+
+function setupCollapsiblePanels() {
+  el.collapsiblePanels.forEach((panel) => {
+    const key = panel.dataset.panelKey;
+    const toggleBtn = panel.querySelector(".panel-toggle");
+    if (!toggleBtn || !key) return;
+
+    const storageKey = key === "load-panel" ? STORAGE_KEYS.loadPanelCollapsed : STORAGE_KEYS.issuesPanelCollapsed;
+    const collapsed = loadBooleanFromStorage(storageKey, false);
+    panel.classList.toggle("collapsed", collapsed);
+    toggleBtn.setAttribute("aria-expanded", String(!collapsed));
+
+    toggleBtn.addEventListener("click", () => {
+      const nextCollapsed = !panel.classList.contains("collapsed");
+      panel.classList.toggle("collapsed", nextCollapsed);
+      toggleBtn.setAttribute("aria-expanded", String(!nextCollapsed));
+      saveBooleanToStorage(storageKey, nextCollapsed);
+    });
+  });
 }
 
 async function loadServerDocumentsList() {
@@ -477,7 +579,7 @@ async function loadFromServerSelection() {
     state.currentJsonPath = selected.jsonPath;
     state.currentCuratedPath = data.curatedPath;
     state.rawObj = data.rawJson;
-    state.curatedObj = data.curatedJson;
+    state.curatedObj = sanitizeCurated(data.curatedJson);
 
     el.rawJsonView.textContent = JSON.stringify(state.rawObj, null, 2);
     syncEditorFromCurated();
@@ -517,7 +619,7 @@ async function loadFromPickedFiles() {
 
     setStatus(
       "Loaded from browser file picker. Save will use backend endpoint and write to chosen output folder (or server default folder).",
-      "ok"
+      "ok",
     );
   } catch (err) {
     setStatus(`Load failed (file-picker mode): ${err.message || err}`, "error");
@@ -531,6 +633,8 @@ async function saveCurated() {
   }
 
   try {
+    state.curatedObj = sanitizeCurated(state.curatedObj);
+
     const payload = {
       mode: state.mode,
       curatedJson: state.curatedObj,
@@ -570,15 +674,12 @@ function setupThresholdOptions() {
 }
 
 function setupSplitters() {
-  const panes = document.getElementById("panes");
-  const leftPane = document.getElementById("left-pane");
-  const middlePane = document.getElementById("middle-pane");
-  const rightPane = document.getElementById("right-pane");
-
   function attach(splitter, left, right) {
     splitter.addEventListener("pointerdown", (e) => {
+      if (splitter.id === "splitter-1" && !state.analysisVisible) return;
+
       e.preventDefault();
-      const rect = panes.getBoundingClientRect();
+      const rect = el.panes.getBoundingClientRect();
       const leftRect = left.getBoundingClientRect();
       const rightRect = right.getBoundingClientRect();
       const startX = e.clientX;
@@ -615,8 +716,8 @@ function setupSplitters() {
     });
   }
 
-  attach(document.getElementById("splitter-1"), leftPane, middlePane);
-  attach(document.getElementById("splitter-2"), middlePane, rightPane);
+  attach(el.splitter1, el.leftPane, el.middlePane);
+  attach(el.splitter2, el.middlePane, el.rightPane);
 }
 
 function hookEvents() {
@@ -664,12 +765,23 @@ function hookEvents() {
   el.curPageKind.addEventListener("change", applyPageEditorToCurated);
   el.curPageStatus.addEventListener("change", applyPageEditorToCurated);
   el.curPageText.addEventListener("input", applyPageEditorToCurated);
+
+  el.analysisToggleBtn.addEventListener("click", async () => {
+    applyAnalysisVisibility(!state.analysisVisible);
+    if (state.pdfDoc) {
+      await renderCurrentPage();
+    }
+  });
 }
 
 async function bootstrap() {
   setupThresholdOptions();
   setupSplitters();
+  setupCollapsiblePanels();
   hookEvents();
+
+  const initialVisible = loadBooleanFromStorage(STORAGE_KEYS.analysisVisible, false);
+  applyAnalysisVisibility(initialVisible);
 
   try {
     const cfgResp = await fetch("/api/config");

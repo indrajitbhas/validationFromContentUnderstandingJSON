@@ -107,6 +107,37 @@ def _curated_path_for_pdf(pdf_path: Path) -> Path:
     return pdf_path.with_suffix(".curated.json")
 
 
+def _sanitize_curated_schema(curated_obj: Any) -> Any:
+    """Normalize curated payload for page-level approval schema.
+
+    - Removes legacy per-word `status` fields silently.
+    - Ensures page-level status exists.
+    """
+    if not isinstance(curated_obj, dict):
+        return curated_obj
+
+    pages = curated_obj.get("pages")
+    if not isinstance(pages, list):
+        return curated_obj
+
+    for page in pages:
+        if not isinstance(page, dict):
+            continue
+
+        if "status" not in page or page.get("status") not in {"pending", "approved"}:
+            page["status"] = "pending"
+
+        words = page.get("words")
+        if not isinstance(words, list):
+            continue
+
+        for word in words:
+            if isinstance(word, dict) and "status" in word:
+                word.pop("status", None)
+
+    return curated_obj
+
+
 def _build_curated(raw: dict[str, Any], pdf_name: str, source_json_name: str) -> dict[str, Any]:
     pages = _extract_analysis_pages(raw) or []
     curated_pages: list[dict[str, Any]] = []
@@ -129,7 +160,6 @@ def _build_curated(raw: dict[str, Any], pdf_name: str, source_json_name: str) ->
                     "text": content,
                     "original": content,
                     "confidence": confidence_val,
-                    "status": "pending",
                     "note": "",
                 }
             )
@@ -239,6 +269,7 @@ def create_app(base_folder: Path) -> Flask:
         if curated_path.exists():
             try:
                 curated_obj = json.loads(curated_path.read_text(encoding="utf-8"))
+                curated_obj = _sanitize_curated_schema(curated_obj)
             except Exception as exc:  # noqa: BLE001
                 return jsonify(
                     {
@@ -343,6 +374,7 @@ def create_app(base_folder: Path) -> Flask:
                 backup_path = target_path.with_suffix(target_path.suffix + f".{ts}.bak")
                 shutil.copy2(target_path, backup_path)
 
+            curated_obj = _sanitize_curated_schema(curated_obj)
             curated_obj.setdefault("schema", "curated/1")
             curated_obj.setdefault("document", {})
             curated_obj["document"]["updatedAt"] = datetime.now(timezone.utc).isoformat()

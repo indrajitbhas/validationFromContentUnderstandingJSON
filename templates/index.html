@@ -9,76 +9,88 @@
   <body>
     <header class="app-header">
       <h1>3-Pane PDF Review Tool</h1>
-      <div class="badge">Expects Azure Content Understanding output</div>
+      <div class="header-actions">
+        <button id="toggle-analysis" class="header-btn" type="button" aria-pressed="false">View analysis</button>
+        <div class="badge">Expects Azure Content Understanding output</div>
+      </div>
     </header>
 
-    <section class="load-panel">
-      <h2>Load source files</h2>
+    <section class="collapsible-panel load-panel" data-panel-key="load-panel">
+      <button class="panel-toggle" type="button" aria-expanded="true">
+        <span class="chevron" aria-hidden="true">▾</span>
+        <span class="panel-title">Load source files</span>
+      </button>
+      <div class="panel-content">
+        <div class="row">
+          <label for="doc-select">Server folder PDF + JSON pair</label>
+          <select id="doc-select"></select>
+          <button id="refresh-docs">Refresh list</button>
+          <button id="load-server-doc">Load from server folder</button>
+        </div>
 
-      <div class="row">
-        <label for="doc-select">Server folder PDF + JSON pair</label>
-        <select id="doc-select"></select>
-        <button id="refresh-docs">Refresh list</button>
-        <button id="load-server-doc">Load from server folder</button>
-      </div>
+        <div class="row">
+          <label for="pdf-file">Open files fallback (browser picker):</label>
+          <input id="pdf-file" type="file" accept="application/pdf" />
+          <input id="json-file" type="file" accept="application/json" />
+          <button id="load-picked-files">Load picked files</button>
+        </div>
 
-      <div class="row">
-        <label for="pdf-file">Open files fallback (browser picker):</label>
-        <input id="pdf-file" type="file" accept="application/pdf" />
-        <input id="json-file" type="file" accept="application/json" />
-        <button id="load-picked-files">Load picked files</button>
-      </div>
+        <div class="row picker-save">
+          <label for="picker-output-dir">Picker save output folder:</label>
+          <input id="picker-output-dir" type="text" placeholder="Default: server base folder" />
+          <label for="picker-output-file">Output file name (optional):</label>
+          <input id="picker-output-file" type="text" placeholder="e.g. mydoc.curated.json" />
+        </div>
 
-      <div class="row picker-save">
-        <label for="picker-output-dir">Picker save output folder:</label>
-        <input id="picker-output-dir" type="text" placeholder="Default: server base folder" />
-        <label for="picker-output-file">Output file name (optional):</label>
-        <input id="picker-output-file" type="text" placeholder="e.g. mydoc.curated.json" />
-      </div>
-
-      <div id="status-message" class="status neutral">Ready.</div>
-    </section>
-
-    <section class="issues-panel">
-      <h2>Issues and filters</h2>
-      <div class="filters">
-        <label for="threshold-select">Word confidence threshold</label>
-        <select id="threshold-select"></select>
-
-        <label class="checkbox-label" for="empty-pages-checkbox">
-          <input id="empty-pages-checkbox" type="checkbox" checked />
-          Flag empty pages
-        </label>
-
-        <label for="page-avg-input">Page-average confidence below</label>
-        <input id="page-avg-input" type="number" min="0.0" max="1.0" step="0.05" value="0.80" />
-
-        <label for="issue-search">Issue text search (optional)</label>
-        <input id="issue-search" type="text" placeholder="Search snippet..." />
-      </div>
-
-      <div class="issues-table-wrap">
-        <table id="issues-table">
-          <thead>
-            <tr>
-              <th>Page</th>
-              <th>Snippet</th>
-              <th>Confidence</th>
-              <th>Reason</th>
-            </tr>
-          </thead>
-          <tbody id="issues-body"></tbody>
-        </table>
+        <div id="status-message" class="status neutral">Ready.</div>
       </div>
     </section>
 
-    <main id="panes" class="panes">
-      <section id="left-pane" class="pane">
+    <section class="collapsible-panel issues-panel" data-panel-key="issues-panel">
+      <button class="panel-toggle" type="button" aria-expanded="true">
+        <span class="chevron" aria-hidden="true">▾</span>
+        <span class="panel-title">Issues and filters</span>
+      </button>
+      <div class="panel-content">
+        <div class="filters">
+          <label for="threshold-select">Word confidence threshold</label>
+          <select id="threshold-select"></select>
+
+          <label class="checkbox-label" for="empty-pages-checkbox">
+            <input id="empty-pages-checkbox" type="checkbox" checked />
+            Flag empty pages
+          </label>
+
+          <label for="page-avg-input">Page-average confidence below</label>
+          <input id="page-avg-input" type="number" min="0.0" max="1.0" step="0.05" value="0.80" />
+
+          <label for="issue-search">Issue text search (optional)</label>
+          <input id="issue-search" type="text" placeholder="Search snippet..." />
+        </div>
+
+        <div class="issues-table-wrap">
+          <table id="issues-table">
+            <thead>
+              <tr>
+                <th>Page</th>
+                <th>Snippet</th>
+                <th>Confidence</th>
+                <th>Reason</th>
+              </tr>
+            </thead>
+            <tbody id="issues-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <main id="panes" class="panes analysis-hidden">
+      <section id="left-pane" class="pane" aria-hidden="true">
         <h3>Raw analysis JSON (read-only)</h3>
         <div id="raw-json-view" class="json-view"></div>
       </section>
 
-      <div id="splitter-1" class="splitter" title="Drag to resize"></div>
+      <div id="splitter-1" class="splitter" title="Drag to resize" aria-hidden="true"></div>
 
       <section id="middle-pane" class="pane pdf-pane">
         <h3>PDF</h3>
