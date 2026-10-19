@@ -13,19 +13,48 @@ from flask import Flask, jsonify, render_template, request, send_file
 def _extract_analysis_pages(data: Any) -> list | None:
     """Resolve the pages array from a Content Understanding result.
 
-    Accepts both the bare form (top-level "pages") and the standard envelope
-    ("kind": "document" with "document": { "pages": [...] }).
+    Accepts three shapes produced by the service / SDK:
+      A) bare form: top-level "pages": [...]
+      B) envelope:  { "kind": "document", "document": { "pages": [...] } }
+      C) SDK as_dict() (api 2025-11-01): { "contents": [ { "kind": "document",
+           "pages": [...] }, ... ] }  -> pages merged across content entries.
     """
     if not isinstance(data, dict):
         return None
+
     pages = data.get("pages")
     if isinstance(pages, list):
         return pages
+
     doc = data.get("document")
     if isinstance(doc, dict):
         pages = doc.get("pages")
         if isinstance(pages, list):
             return pages
+
+    contents = data.get("contents")
+    if isinstance(contents, list):
+        merged: list[dict[str, Any]] = []
+        seen: set[int] = set()
+        for entry in contents:
+            if not isinstance(entry, dict):
+                continue
+            entry_pages = entry.get("pages")
+            if not isinstance(entry_pages, list):
+                continue
+            for page in entry_pages:
+                if not isinstance(page, dict):
+                    continue
+                num = page.get("pageNumber")
+                key = int(num) if isinstance(num, (int, float)) and num == int(num) else -1
+                if key >= 0 and key in seen:
+                    continue
+                if key >= 0:
+                    seen.add(key)
+                merged.append(page)
+        merged.sort(key=lambda p: p.get("pageNumber", 0))
+        return merged or None
+
     return None
 
 
@@ -35,7 +64,10 @@ def _looks_like_content_understanding(data: Any) -> tuple[bool, str]:
 
     pages = _extract_analysis_pages(data)
     if not isinstance(pages, list):
-        where = "top-level 'pages' or inside the 'document' object"
+        where = (
+            "top-level 'pages', inside the 'document' object, "
+            "or inside 'contents[].pages' (SDK as_dict output)"
+        )
         found = sorted(str(k) for k in data.keys())
         return (
             False,

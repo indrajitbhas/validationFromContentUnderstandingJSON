@@ -74,6 +74,23 @@ function getAnalysisPages(rawObj) {
   if (rawObj.document && typeof rawObj.document === "object" && Array.isArray(rawObj.document.pages)) {
     return rawObj.document.pages;
   }
+  if (Array.isArray(rawObj.contents)) {
+    const seen = new Set();
+    const merged = [];
+    rawObj.contents.forEach((entry) => {
+      if (!entry || typeof entry !== "object" || !Array.isArray(entry.pages)) return;
+      entry.pages.forEach((page) => {
+        if (!page || typeof page !== "object") return;
+        const num = page.pageNumber;
+        const key = Number.isInteger(num) ? num : -1;
+        if (key >= 0 && seen.has(key)) return;
+        if (key >= 0) seen.add(key);
+        merged.push(page);
+      });
+    });
+    merged.sort((a, b) => Number(a.pageNumber) - Number(b.pageNumber));
+    return merged;
+  }
   return [];
 }
 
@@ -84,8 +101,8 @@ function validateContentUnderstanding(rawObj) {
   const pages = getAnalysisPages(rawObj);
   if (pages.length === 0) {
     throw new Error(
-      "Expected a Content Understanding document result with a pages array (top-level 'pages' " +
-        "or inside the 'document' object). Top-level keys found: " +
+      "Expected a Content Understanding document result with a pages array (top-level 'pages', " +
+        "inside the 'document' object, or inside 'contents[].pages'). Top-level keys found: " +
         (Object.keys(rawObj).join(", ") || "(none)") +
         ".",
     );

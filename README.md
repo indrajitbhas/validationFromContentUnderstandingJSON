@@ -110,9 +110,12 @@ Open:
 
 ## Input format
 
-The tool expects **Azure Content Understanding** document-analysis output. Both shapes are accepted:
+The tool expects **Azure Content Understanding** document-analysis output. Three shapes are accepted:
 
 - bare form: top-level `"pages": [...]`
-- standard envelope: `{ "resultId": ..., "kind": "document", "document": { "pages": [...] } }`
+- envelope: `{ "kind": "document", "document": { "pages": [...] } }`
+- **SDK as_dict() output** (what this project's CLI saves, api 2025-11-01):
+  `{ "analyzerId": ..., "apiVersion": ..., "contents": [ { "kind": "document", "pages": [...] } ], ... }`
+  — pages are merged across all `contents` entries and sorted by page number.
 
 If loading fails, the error message lists the top-level keys found in your file, which tells you which shape it actually is.
