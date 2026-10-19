@@ -107,3 +107,12 @@ Open:
 - This tool intentionally skips bounding box overlays.
 - JSON structure checks are strict enough to reject non-Content-Understanding JSON with clear errors.
 - Runtime has no CDN dependency; PDF.js assets are vendored in `static/vendor/pdfjs/`.
+
+## Input format
+
+The tool expects **Azure Content Understanding** document-analysis output. Both shapes are accepted:
+
+- bare form: top-level `"pages": [...]`
+- standard envelope: `{ "resultId": ..., "kind": "document", "document": { "pages": [...] } }`
+
+If loading fails, the error message lists the top-level keys found in your file, which tells you which shape it actually is.

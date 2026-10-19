@@ -68,16 +68,31 @@ function parseJsonError(err) {
   return `JSON parse error: ${msg}`;
 }
 
+function getAnalysisPages(rawObj) {
+  if (!rawObj || typeof rawObj !== "object") return [];
+  if (Array.isArray(rawObj.pages)) return rawObj.pages;
+  if (rawObj.document && typeof rawObj.document === "object" && Array.isArray(rawObj.document.pages)) {
+    return rawObj.document.pages;
+  }
+  return [];
+}
+
 function validateContentUnderstanding(rawObj) {
   if (!rawObj || typeof rawObj !== "object") {
     throw new Error("Top-level JSON must be an object.");
   }
-  if (!Array.isArray(rawObj.pages)) {
-    throw new Error("Expected top-level 'pages' array (Azure Content Understanding document output).");
+  const pages = getAnalysisPages(rawObj);
+  if (pages.length === 0) {
+    throw new Error(
+      "Expected a Content Understanding document result with a pages array (top-level 'pages' " +
+        "or inside the 'document' object). Top-level keys found: " +
+        (Object.keys(rawObj).join(", ") || "(none)") +
+        ".",
+    );
   }
 
-  for (let i = 0; i < rawObj.pages.length; i += 1) {
-    const p = rawObj.pages[i];
+  for (let i = 0; i < pages.length; i += 1) {
+    const p = pages[i];
     if (!p || typeof p !== "object") throw new Error(`pages[${i}] must be an object.`);
     if (!Object.prototype.hasOwnProperty.call(p, "pageNumber")) throw new Error(`pages[${i}] missing pageNumber.`);
     if (!Array.isArray(p.words)) throw new Error(`pages[${i}].words must be an array.`);
@@ -91,7 +106,7 @@ function validateContentUnderstanding(rawObj) {
 }
 
 function buildCuratedFromRaw(rawObj, pdfName, sourceJsonName) {
-  const pages = rawObj.pages || [];
+  const pages = getAnalysisPages(rawObj);
   return {
     schema: "curated/1",
     document: {
@@ -163,7 +178,7 @@ function validateCuratedEditor() {
 }
 
 function getNormalizedPages(rawObj) {
-  const pages = Array.isArray(rawObj?.pages) ? rawObj.pages : [];
+  const pages = getAnalysisPages(rawObj);
   return pages.map((page, idx) => {
     const pageNumber = Number(page.pageNumber ?? idx + 1);
     const words = Array.isArray(page.words)

@@ -10,13 +10,38 @@ from typing import Any
 from flask import Flask, jsonify, render_template, request, send_file
 
 
+def _extract_analysis_pages(data: Any) -> list | None:
+    """Resolve the pages array from a Content Understanding result.
+
+    Accepts both the bare form (top-level "pages") and the standard envelope
+    ("kind": "document" with "document": { "pages": [...] }).
+    """
+    if not isinstance(data, dict):
+        return None
+    pages = data.get("pages")
+    if isinstance(pages, list):
+        return pages
+    doc = data.get("document")
+    if isinstance(doc, dict):
+        pages = doc.get("pages")
+        if isinstance(pages, list):
+            return pages
+    return None
+
+
 def _looks_like_content_understanding(data: Any) -> tuple[bool, str]:
     if not isinstance(data, dict):
         return False, "Top-level JSON must be an object."
 
-    pages = data.get("pages")
+    pages = _extract_analysis_pages(data)
     if not isinstance(pages, list):
-        return False, "Expected Content Understanding document output with top-level 'pages' array."
+        where = "top-level 'pages' or inside the 'document' object"
+        found = sorted(str(k) for k in data.keys())
+        return (
+            False,
+            f"Expected a Content Understanding document result with a pages array "
+            f"({where}). Top-level keys found: {', '.join(found) or '(none)'}.",
+        )
 
     for idx, page in enumerate(pages):
         if not isinstance(page, dict):
@@ -51,7 +76,7 @@ def _curated_path_for_pdf(pdf_path: Path) -> Path:
 
 
 def _build_curated(raw: dict[str, Any], pdf_name: str, source_json_name: str) -> dict[str, Any]:
-    pages = raw.get("pages", [])
+    pages = _extract_analysis_pages(raw) or []
     curated_pages: list[dict[str, Any]] = []
 
     for page in pages:
