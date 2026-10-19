@@ -328,6 +328,110 @@ button:disabled {
   overflow: auto;
 }
 
+.word-editor {
+  margin: 0 8px 8px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #fbfbfd;
+}
+
+.word-editor > summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: #333;
+  user-select: none;
+  list-style: none;
+}
+
+.word-editor > summary::-webkit-details-marker {
+  display: none;
+}
+
+.word-editor > summary:hover {
+  background: #f0f2f6;
+}
+
+.word-editor .chevron {
+  display: inline-block;
+  transition: transform 0.15s ease;
+}
+
+.word-editor:not([open]) .chevron {
+  transform: rotate(-90deg);
+}
+
+.word-count {
+  margin-left: auto;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.word-hint {
+  margin: 0;
+  padding: 0 8px 6px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.word-hint-warn {
+  color: var(--warn);
+}
+
+.word-list {
+  max-height: 190px;
+  overflow: auto;
+  padding: 0 8px 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.word-item {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 3px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: #fff;
+}
+
+.word-item.low-confidence {
+  border-color: #e0a800;
+  background: #fffbea;
+}
+
+.word-item input {
+  width: auto;
+  min-width: 3ch;
+  max-width: 22ch;
+  padding: 2px 4px;
+  border: none;
+  background: transparent;
+  font-family: Consolas, Menlo, monospace;
+  font-size: 12px;
+}
+
+.word-item input:focus {
+  outline: 1px solid #4a7dff;
+  background: #fff;
+}
+
+.word-conf {
+  font-size: 10px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.word-item.low-confidence .word-conf {
+  color: #a06a00;
+}
+
 .json-error {
   min-height: 18px;
   padding: 6px 8px;
