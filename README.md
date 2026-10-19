@@ -6,7 +6,7 @@ Local 3-pane web app for reviewing and correcting OCR/extraction output from **A
 
 ## What it does
 
-- **Pane 1 (left):** raw analysis JSON (read-only, wrapped text, independent scrolling), hidden by default and shown with the **View analysis** button.
+- **Pane 1 (left):** raw analysis JSON (read-only, wrapped text, independent scrolling), hidden by default and shown with the **View analysis** button. Inside that pane, the raw JSON box itself is also collapsible.
 - **Pane 2 (middle):** PDF viewer using **vendored PDF.js** (no CDN), with:
   - prev/next page
   - page number input
@@ -14,11 +14,12 @@ Local 3-pane web app for reviewing and correcting OCR/extraction output from **A
   - fit width
   - single-page rendering (only current visible page is rendered)
 - **Pane 3 (right):** editable curated JSON + page-level editor controls:
-  - page `kind` dropdown (`text | blank | handwritten | seal | screenshot | unknown`)
+  - page `Doc. Type` dropdown (`blank | letter | memorandum | telegram | report | interview | envelope | folder_cover | book_cover | newspaper_clipping | form | FOIA_release_page | routing_slip | index_or_list | drawing_or_sketch | photograph | map | handwritten_note | other`)
   - page `status` (`pending | approved`)
-  - page-level corrected full text
+  - hidden page-level corrected text field (still maintained and saved into curated JSON)
   - JSON validation on every edit (line/column parse errors shown)
   - Save disabled while JSON invalid
+  - curated JSON box is collapsible
 
 ### Issues/filters panel
 
@@ -107,6 +108,18 @@ Open:
 - This tool intentionally skips bounding box overlays.
 - JSON structure checks are strict enough to reject non-Content-Understanding JSON with clear errors.
 - Runtime has no CDN dependency; PDF.js assets are vendored in `static/vendor/pdfjs/`.
+
+## Correcting a word
+
+In the right pane, open **Words on this page**. Each word is an editable box showing
+its confidence; low-confidence words are highlighted.
+
+- Typing in a word box updates `words[].text` **and** rewrites that word in
+  `page.text` in place, so the searchable page text always matches your correction.
+- The `page.text` value is now hidden from the UI, but still synchronized and saved.
+- `words[].original` keeps the raw Azure value, so the audit trail is preserved.
+- If a word can no longer be located in `page.text`, the word is still saved and a
+  warning indicates that manual JSON touch-up may be needed.
 
 ## Input format
 

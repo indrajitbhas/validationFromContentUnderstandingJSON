@@ -87,7 +87,15 @@
     <main id="panes" class="panes analysis-hidden">
       <section id="left-pane" class="pane" aria-hidden="true">
         <h3>Raw analysis JSON (read-only)</h3>
-        <div id="raw-json-view" class="json-view"></div>
+        <div id="raw-json-panel" class="pane-collapsible" data-pane-key="raw-json-panel">
+          <button id="raw-json-toggle" class="pane-toggle" type="button" aria-expanded="true">
+            <span class="chevron" aria-hidden="true">▾</span>
+            <span>Raw JSON box</span>
+          </button>
+          <div id="raw-json-content" class="pane-collapsible-content">
+            <div id="raw-json-view" class="json-view"></div>
+          </div>
+        </div>
       </section>
 
       <div id="splitter-1" class="splitter" title="Drag to resize" aria-hidden="true"></div>
@@ -116,15 +124,8 @@
           <label for="cur-page-select">Page:</label>
           <select id="cur-page-select"></select>
 
-          <label for="cur-page-kind">Kind:</label>
-          <select id="cur-page-kind">
-            <option>text</option>
-            <option>blank</option>
-            <option>handwritten</option>
-            <option>seal</option>
-            <option>screenshot</option>
-            <option selected>unknown</option>
-          </select>
+          <label for="cur-page-kind">Doc. Type:</label>
+          <select id="cur-page-kind"></select>
 
           <label for="cur-page-status">Status:</label>
           <select id="cur-page-status">
@@ -133,10 +134,34 @@
           </select>
         </div>
 
-        <label for="cur-page-text" class="page-text-label">Page corrected text</label>
-        <textarea id="cur-page-text" class="page-text"></textarea>
+        <div class="visually-hidden-field" aria-hidden="true">
+          <label for="cur-page-text" class="page-text-label">Page corrected text</label>
+          <textarea id="cur-page-text" class="page-text" tabindex="-1"></textarea>
+        </div>
 
-        <textarea id="curated-editor" class="curated-editor" spellcheck="false"></textarea>
+        <details id="word-editor" class="word-editor" open>
+          <summary>
+            <span class="chevron" aria-hidden="true">▾</span>
+            <span>Words on this page</span>
+            <span id="word-count" class="word-count"></span>
+          </summary>
+          <p class="word-hint">
+            Fix a word here and the hidden page corrected text value is updated in place.
+            Low-confidence words are highlighted.
+          </p>
+          <div id="word-list" class="word-list"></div>
+          <div id="word-hint" class="word-hint word-hint-warn" hidden></div>
+        </details>
+
+        <div id="curated-json-panel" class="pane-collapsible" data-pane-key="curated-json-panel">
+          <button id="curated-json-toggle" class="pane-toggle" type="button" aria-expanded="true">
+            <span class="chevron" aria-hidden="true">▾</span>
+            <span>Curated JSON box</span>
+          </button>
+          <div id="curated-json-content" class="pane-collapsible-content curated-json-content">
+            <textarea id="curated-editor" class="curated-editor" spellcheck="false"></textarea>
+          </div>
+        </div>
 
         <div id="json-error" class="json-error"></div>
 

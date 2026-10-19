@@ -6,7 +6,31 @@ const STORAGE_KEYS = {
   loadPanelCollapsed: "pdf_review_tool:load_panel_collapsed",
   issuesPanelCollapsed: "pdf_review_tool:issues_panel_collapsed",
   analysisVisible: "pdf_review_tool:analysis_visible",
+  rawJsonCollapsed: "pdf_review_tool:raw_json_collapsed",
+  curatedJsonCollapsed: "pdf_review_tool:curated_json_collapsed",
 };
+
+const DOC_TYPE_OPTIONS = [
+  "blank",
+  "letter",
+  "memorandum",
+  "telegram",
+  "report",
+  "interview",
+  "envelope",
+  "folder_cover",
+  "book_cover",
+  "newspaper_clipping",
+  "form",
+  "FOIA_release_page",
+  "routing_slip",
+  "index_or_list",
+  "drawing_or_sketch",
+  "photograph",
+  "map",
+  "handwritten_note",
+  "other",
+];
 
 const state = {
   mode: null, // server | picker
@@ -58,6 +82,9 @@ const el = {
   curPageKind: document.getElementById("cur-page-kind"),
   curPageStatus: document.getElementById("cur-page-status"),
   curPageText: document.getElementById("cur-page-text"),
+  wordList: document.getElementById("word-list"),
+  wordCount: document.getElementById("word-count"),
+  wordHint: document.getElementById("word-hint"),
   panes: document.getElementById("panes"),
   leftPane: document.getElementById("left-pane"),
   middlePane: document.getElementById("middle-pane"),
@@ -66,6 +93,10 @@ const el = {
   splitter2: document.getElementById("splitter-2"),
   analysisToggleBtn: document.getElementById("toggle-analysis"),
   collapsiblePanels: Array.from(document.querySelectorAll(".collapsible-panel")),
+  rawJsonPanel: document.getElementById("raw-json-panel"),
+  rawJsonToggle: document.getElementById("raw-json-toggle"),
+  curatedJsonPanel: document.getElementById("curated-json-panel"),
+  curatedJsonToggle: document.getElementById("curated-json-toggle"),
 };
 
 function setStatus(message, type = "neutral") {
@@ -201,7 +232,7 @@ function buildCuratedFromRaw(rawObj, pdfName, sourceJsonName) {
       });
       return {
         pageNumber: Number(page.pageNumber ?? idx + 1),
-        kind: normalizedWords.length === 0 ? "blank" : "unknown",
+        kind: normalizedWords.length === 0 ? "blank" : "other",
         text: normalizedWords.map((w) => w.text).join(" ").trim(),
         status: "pending",
         words: normalizedWords,
@@ -211,6 +242,20 @@ function buildCuratedFromRaw(rawObj, pdfName, sourceJsonName) {
   };
 
   return sanitizeCurated(curated);
+}
+
+function setDocTypeOptions(selectedValue) {
+  const current = String(selectedValue || "other");
+  const options = DOC_TYPE_OPTIONS.includes(current) ? DOC_TYPE_OPTIONS : [current, ...DOC_TYPE_OPTIONS];
+
+  el.curPageKind.innerHTML = "";
+  options.forEach((value) => {
+    const opt = document.createElement("option");
+    opt.value = value;
+    opt.textContent = value;
+    el.curPageKind.appendChild(opt);
+  });
+  el.curPageKind.value = current;
 }
 
 function syncEditorFromCurated() {
@@ -465,6 +510,7 @@ function rebuildPageEditorControls() {
 
   if (pages.length === 0) {
     el.curPageText.value = "";
+    setDocTypeOptions("other");
     return;
   }
 
@@ -482,17 +528,136 @@ function getSelectedCuratedPage() {
 function syncPageEditorFromSelection() {
   const p = getSelectedCuratedPage();
   if (!p) return;
-  el.curPageKind.value = p.kind || "unknown";
+
+  const selectedKind = p.kind || "other";
+  setDocTypeOptions(selectedKind);
   el.curPageStatus.value = p.status === "approved" ? "approved" : "pending";
   el.curPageText.value = p.text || "";
+  renderWordList(p);
+}
+
+/**
+ * Locate each word's current text inside the page text, in reading order.
+ * Returns an array of [start, end) spans, or null where a word cannot be found.
+ */
+function computeWordSpans(pageText, words) {
+  const spans = [];
+  let cursor = 0;
+  for (const w of words) {
+    const needle = String(w?.text ?? "");
+    if (!needle) {
+      spans.push(null);
+      continue;
+    }
+    const at = pageText.indexOf(needle, cursor);
+    if (at === -1) {
+      spans.push(null);
+      continue;
+    }
+    spans.push([at, at + needle.length]);
+    cursor = at + needle.length;
+  }
+  return spans;
+}
+
+/**
+ * Replace one word's text inside the page text, preserving every other
+ * character (spacing, punctuation, line breaks) exactly as the user left it.
+ * Returns the new page text, or null when the word cannot be located.
+ */
+function replaceWordInPageText(pageText, words, index, newText) {
+  const spans = computeWordSpans(pageText, words);
+  const span = spans[index];
+  if (!span) return null;
+  return pageText.slice(0, span[0]) + newText + pageText.slice(span[1]);
+}
+
+function renderWordList(page) {
+  const words = Array.isArray(page?.words) ? page.words : [];
+  el.wordList.innerHTML = "";
+  el.wordCount.textContent = words.length ? `${words.length} words` : "no words";
+  el.wordHint.hidden = true;
+  el.wordHint.textContent = "";
+
+  if (words.length === 0) {
+    const empty = document.createElement("span");
+    empty.className = "word-hint";
+    empty.textContent = "This page has no word-level data (blank page or no OCR words).";
+    el.wordList.appendChild(empty);
+    return;
+  }
+
+  const threshold = Number(el.threshold?.value ?? 0.8);
+  words.forEach((word, index) => {
+    const item = document.createElement("span");
+    item.className = "word-item";
+    const conf = Number(word?.confidence);
+    if (Number.isFinite(conf) && conf < threshold) {
+      item.classList.add("low-confidence");
+    }
+
+    const input = document.createElement("input");
+    input.type = "text";
+    input.value = String(word?.text ?? "");
+    input.dataset.wordIndex = String(index);
+    input.title = Number.isFinite(conf)
+      ? `confidence ${conf.toFixed(3)}${word?.original ? ` · original: ${word.original}` : ""}`
+      : "no confidence value";
+    input.style.width = `${Math.max(3, Math.min(22, input.value.length + 1))}ch`;
+    item.appendChild(input);
+
+    if (Number.isFinite(conf)) {
+      const badge = document.createElement("span");
+      badge.className = "word-conf";
+      badge.textContent = conf.toFixed(2);
+      item.appendChild(badge);
+    }
+
+    el.wordList.appendChild(item);
+  });
+}
+
+function applyWordEdit(index, newText) {
+  const page = getSelectedCuratedPage();
+  if (!page || !Array.isArray(page.words)) return;
+  const word = page.words[index];
+  if (!word) return;
+
+  const oldText = String(word.text ?? "");
+  if (oldText === newText) return;
+
+  const updatedText = replaceWordInPageText(page.text || "", page.words, index, newText);
+  word.text = newText;
+
+  if (updatedText === null) {
+    el.wordHint.hidden = false;
+    el.wordHint.textContent =
+      "Word saved, but it could not be located in the page text (the text was edited " +
+      "manually). Update curated JSON directly if needed.";
+  } else {
+    page.text = updatedText;
+    el.curPageText.value = updatedText;
+    el.wordHint.hidden = true;
+    el.wordHint.textContent = "";
+  }
+
+  if (!state.curatedObj.document) state.curatedObj.document = {};
+  state.curatedObj.document.updatedAt = new Date().toISOString();
+
+  state.curatedObj = sanitizeCurated(state.curatedObj);
+  el.curatedEditor.value = JSON.stringify(state.curatedObj, null, 2);
+  validateCuratedEditor();
+  recomputeIssues();
 }
 
 function applyPageEditorToCurated() {
   const p = getSelectedCuratedPage();
   if (!p) return;
+
   p.kind = el.curPageKind.value;
   p.status = el.curPageStatus.value === "approved" ? "approved" : "pending";
   p.text = el.curPageText.value;
+
   if (!state.curatedObj.document) state.curatedObj.document = {};
   state.curatedObj.document.updatedAt = new Date().toISOString();
 
@@ -512,13 +677,18 @@ function applyAnalysisVisibility(visible) {
 }
 
 function setupCollapsiblePanels() {
+  const panelStorageMap = {
+    "load-panel": STORAGE_KEYS.loadPanelCollapsed,
+    "issues-panel": STORAGE_KEYS.issuesPanelCollapsed,
+  };
+
   el.collapsiblePanels.forEach((panel) => {
     const key = panel.dataset.panelKey;
     const toggleBtn = panel.querySelector(".panel-toggle");
     if (!toggleBtn || !key) return;
 
-    const storageKey = key === "load-panel" ? STORAGE_KEYS.loadPanelCollapsed : STORAGE_KEYS.issuesPanelCollapsed;
-    const collapsed = loadBooleanFromStorage(storageKey, false);
+    const storageKey = panelStorageMap[key];
+    const collapsed = storageKey ? loadBooleanFromStorage(storageKey, false) : false;
     panel.classList.toggle("collapsed", collapsed);
     toggleBtn.setAttribute("aria-expanded", String(!collapsed));
 
@@ -526,7 +696,45 @@ function setupCollapsiblePanels() {
       const nextCollapsed = !panel.classList.contains("collapsed");
       panel.classList.toggle("collapsed", nextCollapsed);
       toggleBtn.setAttribute("aria-expanded", String(!nextCollapsed));
+      if (storageKey) saveBooleanToStorage(storageKey, nextCollapsed);
+      requestAnimationFrame(() => {
+        if (state.pdfDoc) renderCurrentPage();
+      });
+    });
+  });
+}
+
+function setupJsonPaneCollapsibles() {
+  const paneConfigs = [
+    {
+      panel: el.rawJsonPanel,
+      toggle: el.rawJsonToggle,
+      storageKey: STORAGE_KEYS.rawJsonCollapsed,
+      defaultCollapsed: false,
+    },
+    {
+      panel: el.curatedJsonPanel,
+      toggle: el.curatedJsonToggle,
+      storageKey: STORAGE_KEYS.curatedJsonCollapsed,
+      defaultCollapsed: false,
+    },
+  ];
+
+  paneConfigs.forEach(({ panel, toggle, storageKey, defaultCollapsed }) => {
+    if (!panel || !toggle) return;
+
+    const collapsed = loadBooleanFromStorage(storageKey, defaultCollapsed);
+    panel.classList.toggle("collapsed", collapsed);
+    toggle.setAttribute("aria-expanded", String(!collapsed));
+
+    toggle.addEventListener("click", () => {
+      const nextCollapsed = !panel.classList.contains("collapsed");
+      panel.classList.toggle("collapsed", nextCollapsed);
+      toggle.setAttribute("aria-expanded", String(!nextCollapsed));
       saveBooleanToStorage(storageKey, nextCollapsed);
+      requestAnimationFrame(() => {
+        if (state.pdfDoc) renderCurrentPage();
+      });
     });
   });
 }
@@ -764,7 +972,20 @@ function hookEvents() {
   el.curPageSelect.addEventListener("change", syncPageEditorFromSelection);
   el.curPageKind.addEventListener("change", applyPageEditorToCurated);
   el.curPageStatus.addEventListener("change", applyPageEditorToCurated);
-  el.curPageText.addEventListener("input", applyPageEditorToCurated);
+
+  el.wordList.addEventListener("input", (event) => {
+    const input = event.target;
+    if (!input || input.tagName !== "INPUT") return;
+    const index = Number(input.dataset.wordIndex);
+    if (!Number.isInteger(index)) return;
+    input.style.width = `${Math.max(3, Math.min(22, input.value.length + 1))}ch`;
+    applyWordEdit(index, input.value);
+  });
+
+  el.threshold.addEventListener("change", () => {
+    const page = getSelectedCuratedPage();
+    if (page) renderWordList(page);
+  });
 
   el.analysisToggleBtn.addEventListener("click", async () => {
     applyAnalysisVisibility(!state.analysisVisible);
@@ -776,8 +997,10 @@ function hookEvents() {
 
 async function bootstrap() {
   setupThresholdOptions();
+  setDocTypeOptions("other");
   setupSplitters();
   setupCollapsiblePanels();
+  setupJsonPaneCollapsibles();
   hookEvents();
 
   const initialVisible = loadBooleanFromStorage(STORAGE_KEYS.analysisVisible, false);

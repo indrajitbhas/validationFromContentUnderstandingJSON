@@ -167,7 +167,7 @@ def _build_curated(raw: dict[str, Any], pdf_name: str, source_json_name: str) ->
         curated_pages.append(
             {
                 "pageNumber": int(page.get("pageNumber", len(curated_pages) + 1)),
-                "kind": "blank" if len(normalized_words) == 0 else "unknown",
+                "kind": "blank" if len(normalized_words) == 0 else "other",
                 "text": " ".join([t for t in text_tokens if t]).strip(),
                 "status": "pending",
                 "words": normalized_words,
