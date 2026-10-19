@@ -58,6 +58,9 @@ const el = {
   curPageKind: document.getElementById("cur-page-kind"),
   curPageStatus: document.getElementById("cur-page-status"),
   curPageText: document.getElementById("cur-page-text"),
+  wordList: document.getElementById("word-list"),
+  wordCount: document.getElementById("word-count"),
+  wordHint: document.getElementById("word-hint"),
   panes: document.getElementById("panes"),
   leftPane: document.getElementById("left-pane"),
   middlePane: document.getElementById("middle-pane"),
@@ -485,6 +488,121 @@ function syncPageEditorFromSelection() {
   el.curPageKind.value = p.kind || "unknown";
   el.curPageStatus.value = p.status === "approved" ? "approved" : "pending";
   el.curPageText.value = p.text || "";
+  renderWordList(p);
+}
+
+/**
+ * Locate each word's current text inside the page text, in reading order.
+ * Returns an array of [start, end) spans, or null where a word cannot be found.
+ */
+function computeWordSpans(pageText, words) {
+  const spans = [];
+  let cursor = 0;
+  for (const w of words) {
+    const needle = String(w?.text ?? "");
+    if (!needle) {
+      spans.push(null);
+      continue;
+    }
+    const at = pageText.indexOf(needle, cursor);
+    if (at === -1) {
+      spans.push(null);
+      continue;
+    }
+    spans.push([at, at + needle.length]);
+    cursor = at + needle.length;
+  }
+  return spans;
+}
+
+/**
+ * Replace one word's text inside the page text, preserving every other
+ * character (spacing, punctuation, line breaks) exactly as the user left it.
+ * Returns the new page text, or null when the word cannot be located.
+ */
+function replaceWordInPageText(pageText, words, index, newText) {
+  const spans = computeWordSpans(pageText, words);
+  const span = spans[index];
+  if (!span) return null;
+  return pageText.slice(0, span[0]) + newText + pageText.slice(span[1]);
+}
+
+function renderWordList(page) {
+  const words = Array.isArray(page?.words) ? page.words : [];
+  el.wordList.innerHTML = "";
+  el.wordCount.textContent = words.length ? `${words.length} words` : "no words";
+  el.wordHint.hidden = true;
+  el.wordHint.textContent = "";
+
+  if (words.length === 0) {
+    const empty = document.createElement("span");
+    empty.className = "word-hint";
+    empty.textContent = "This page has no word-level data (blank page or no OCR words).";
+    el.wordList.appendChild(empty);
+    return;
+  }
+
+  const threshold = Number(el.threshold?.value ?? 0.8);
+  words.forEach((word, index) => {
+    const item = document.createElement("span");
+    item.className = "word-item";
+    const conf = Number(word?.confidence);
+    if (Number.isFinite(conf) && conf < threshold) {
+      item.classList.add("low-confidence");
+    }
+
+    const input = document.createElement("input");
+    input.type = "text";
+    input.value = String(word?.text ?? "");
+    input.dataset.wordIndex = String(index);
+    input.title = Number.isFinite(conf)
+      ? `confidence ${conf.toFixed(3)}${word?.original ? ` · original: ${word.original}` : ""}`
+      : "no confidence value";
+    input.style.width = `${Math.max(3, Math.min(22, input.value.length + 1))}ch`;
+    item.appendChild(input);
+
+    if (Number.isFinite(conf)) {
+      const badge = document.createElement("span");
+      badge.className = "word-conf";
+      badge.textContent = conf.toFixed(2);
+      item.appendChild(badge);
+    }
+
+    el.wordList.appendChild(item);
+  });
+}
+
+function applyWordEdit(index, newText) {
+  const page = getSelectedCuratedPage();
+  if (!page || !Array.isArray(page.words)) return;
+  const word = page.words[index];
+  if (!word) return;
+
+  const oldText = String(word.text ?? "");
+  if (oldText === newText) return;
+
+  const updatedText = replaceWordInPageText(page.text || "", page.words, index, newText);
+  word.text = newText;
+
+  if (updatedText === null) {
+    el.wordHint.hidden = false;
+    el.wordHint.textContent =
+      "Word saved, but it could not be located in the page text (the text was edited " +
+      "manually). Update the page text above to match, or edit the JSON directly.";
+  } else {
+    page.text = updatedText;
+    el.curPageText.value = updatedText;
+    el.wordHint.hidden = true;
+    el.wordHint.textContent = "";
+  }
+
+  if (!state.curatedObj.document) state.curatedObj.document = {};
+  state.curatedObj.document.updatedAt = new Date().toISOString();
+
+  state.curatedObj = sanitizeCurated(state.curatedObj);
+  el.curatedEditor.value = JSON.stringify(state.curatedObj, null, 2);
+  validateCuratedEditor();
+  recomputeIssues();
 }
 
 function applyPageEditorToCurated() {
@@ -765,6 +883,20 @@ function hookEvents() {
   el.curPageKind.addEventListener("change", applyPageEditorToCurated);
   el.curPageStatus.addEventListener("change", applyPageEditorToCurated);
   el.curPageText.addEventListener("input", applyPageEditorToCurated);
+
+  el.wordList.addEventListener("input", (event) => {
+    const input = event.target;
+    if (!input || input.tagName !== "INPUT") return;
+    const index = Number(input.dataset.wordIndex);
+    if (!Number.isInteger(index)) return;
+    input.style.width = `${Math.max(3, Math.min(22, input.value.length + 1))}ch`;
+    applyWordEdit(index, input.value);
+  });
+
+  el.threshold.addEventListener("change", () => {
+    const page = getSelectedCuratedPage();
+    if (page) renderWordList(page);
+  });
 
   el.analysisToggleBtn.addEventListener("click", async () => {
     applyAnalysisVisibility(!state.analysisVisible);
