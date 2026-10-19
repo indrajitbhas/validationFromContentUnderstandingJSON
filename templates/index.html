@@ -136,6 +136,20 @@
         <label for="cur-page-text" class="page-text-label">Page corrected text</label>
         <textarea id="cur-page-text" class="page-text"></textarea>
 
+        <details id="word-editor" class="word-editor" open>
+          <summary>
+            <span class="chevron" aria-hidden="true">▾</span>
+            <span>Words on this page</span>
+            <span id="word-count" class="word-count"></span>
+          </summary>
+          <p class="word-hint">
+            Fix a word here and the page text above is updated in place. Low-confidence
+            words are highlighted.
+          </p>
+          <div id="word-list" class="word-list"></div>
+          <div id="word-hint" class="word-hint word-hint-warn" hidden></div>
+        </details>
+
         <textarea id="curated-editor" class="curated-editor" spellcheck="false"></textarea>
 
         <div id="json-error" class="json-error"></div>
