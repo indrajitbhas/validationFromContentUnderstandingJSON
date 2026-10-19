@@ -108,6 +108,18 @@ Open:
 - JSON structure checks are strict enough to reject non-Content-Understanding JSON with clear errors.
 - Runtime has no CDN dependency; PDF.js assets are vendored in `static/vendor/pdfjs/`.
 
+## Correcting a word
+
+In the right pane, open **Words on this page** (below the page text). Each word is an
+editable box showing its confidence; low-confidence words are highlighted.
+
+- Typing in a word box updates `words[].text` **and** rewrites that word in
+  `page.text` in place, so the searchable page text always matches your correction.
+- `words[].original` keeps the raw Azure value, so the audit trail is preserved.
+- If the page text was edited by hand and a word can no longer be located in it, the
+  word is still saved and a warning tells you the page text needs a manual touch-up.
+- Editing the page text box directly still works; it does not rewrite individual words.
+
 ## Input format
 
 The tool expects **Azure Content Understanding** document-analysis output. Three shapes are accepted:
