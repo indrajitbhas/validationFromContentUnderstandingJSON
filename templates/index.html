@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PDF Review Tool</title>
+    <link rel="stylesheet" href="/static/css/styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <h1>3-Pane PDF Review Tool</h1>
+      <div class="badge">Expects Azure Content Understanding output</div>
+    </header>
+
+    <section class="load-panel">
+      <h2>Load source files</h2>
+
+      <div class="row">
+        <label for="doc-select">Server folder PDF + JSON pair</label>
+        <select id="doc-select"></select>
+        <button id="refresh-docs">Refresh list</button>
+        <button id="load-server-doc">Load from server folder</button>
+      </div>
+
+      <div class="row">
+        <label for="pdf-file">Open files fallback (browser picker):</label>
+        <input id="pdf-file" type="file" accept="application/pdf" />
+        <input id="json-file" type="file" accept="application/json" />
+        <button id="load-picked-files">Load picked files</button>
+      </div>
+
+      <div class="row picker-save">
+        <label for="picker-output-dir">Picker save output folder:</label>
+        <input id="picker-output-dir" type="text" placeholder="Default: server base folder" />
+        <label for="picker-output-file">Output file name (optional):</label>
+        <input id="picker-output-file" type="text" placeholder="e.g. mydoc.curated.json" />
+      </div>
+
+      <div id="status-message" class="status neutral">Ready.</div>
+    </section>
+
+    <section class="issues-panel">
+      <h2>Issues and filters</h2>
+      <div class="filters">
+        <label for="threshold-select">Word confidence threshold</label>
+        <select id="threshold-select"></select>
+
+        <label class="checkbox-label" for="empty-pages-checkbox">
+          <input id="empty-pages-checkbox" type="checkbox" checked />
+          Flag empty pages
+        </label>
+
+        <label for="page-avg-input">Page-average confidence below</label>
+        <input id="page-avg-input" type="number" min="0.0" max="1.0" step="0.05" value="0.80" />
+
+        <label for="issue-search">Issue text search (optional)</label>
+        <input id="issue-search" type="text" placeholder="Search snippet..." />
+      </div>
+
+      <div class="issues-table-wrap">
+        <table id="issues-table">
+          <thead>
+            <tr>
+              <th>Page</th>
+              <th>Snippet</th>
+              <th>Confidence</th>
+              <th>Reason</th>
+            </tr>
+          </thead>
+          <tbody id="issues-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <main id="panes" class="panes">
+      <section id="left-pane" class="pane">
+        <h3>Raw analysis JSON (read-only)</h3>
+        <div id="raw-json-view" class="json-view"></div>
+      </section>
+
+      <div id="splitter-1" class="splitter" title="Drag to resize"></div>
+
+      <section id="middle-pane" class="pane pdf-pane">
+        <h3>PDF</h3>
+        <div class="pdf-toolbar">
+          <button id="prev-page">Prev</button>
+          <input id="page-input" type="number" min="1" value="1" />
+          <span id="page-count">/ 0</span>
+          <button id="next-page">Next</button>
+          <button id="zoom-out">-</button>
+          <button id="zoom-in">+</button>
+          <button id="fit-width">Fit width</button>
+        </div>
+        <div id="pdf-scroll" class="pdf-scroll">
+          <canvas id="pdf-canvas"></canvas>
+        </div>
+      </section>
+
+      <div id="splitter-2" class="splitter" title="Drag to resize"></div>
+
+      <section id="right-pane" class="pane">
+        <h3>Curated JSON (editable)</h3>
+        <div class="page-editor">
+          <label for="cur-page-select">Page:</label>
+          <select id="cur-page-select"></select>
+
+          <label for="cur-page-kind">Kind:</label>
+          <select id="cur-page-kind">
+            <option>text</option>
+            <option>blank</option>
+            <option>handwritten</option>
+            <option>seal</option>
+            <option>screenshot</option>
+            <option selected>unknown</option>
+          </select>
+
+          <label for="cur-page-status">Status:</label>
+          <select id="cur-page-status">
+            <option selected>pending</option>
+            <option>approved</option>
+          </select>
+        </div>
+
+        <label for="cur-page-text" class="page-text-label">Page corrected text</label>
+        <textarea id="cur-page-text" class="page-text"></textarea>
+
+        <textarea id="curated-editor" class="curated-editor" spellcheck="false"></textarea>
+
+        <div id="json-error" class="json-error"></div>
+
+        <div class="save-row">
+          <button id="save-curated" disabled>Save curated JSON</button>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="/static/js/main.js"></script>
+  </body>
+</html>

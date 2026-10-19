@@ -1,0 +1,273 @@
+:root {
+  --bg: #f6f8fb;
+  --card: #ffffff;
+  --line: #d6dce5;
+  --text: #1c2530;
+  --muted: #6f7d8b;
+  --ok: #0a7a34;
+  --err: #b42318;
+  --warn: #ad6800;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Segoe UI, Arial, sans-serif;
+}
+
+.app-header,
+.load-panel,
+.issues-panel {
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+  padding: 10px 14px;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.badge {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 6px 10px;
+  background: #f1f5f9;
+  font-size: 12px;
+}
+
+.load-panel h2,
+.issues-panel h2 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+input[type="text"],
+input[type="number"],
+select,
+textarea,
+button {
+  border: 1px solid #bfc9d8;
+  border-radius: 4px;
+  padding: 6px 8px;
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+  background: #eef3ff;
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.status {
+  margin-top: 4px;
+  padding: 8px;
+  border-radius: 4px;
+  border: 1px solid var(--line);
+  white-space: pre-wrap;
+}
+
+.status.ok {
+  color: var(--ok);
+  background: #ecfdf3;
+  border-color: #a6f4c5;
+}
+
+.status.error {
+  color: var(--err);
+  background: #fef3f2;
+  border-color: #fecdca;
+}
+
+.status.neutral {
+  color: var(--muted);
+  background: #f8fafc;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.issues-table-wrap {
+  margin-top: 8px;
+  max-height: 180px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  background: #fff;
+}
+
+#issues-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+#issues-table th,
+#issues-table td {
+  border-bottom: 1px solid #e4eaf2;
+  padding: 6px 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.issue-row {
+  cursor: pointer;
+}
+
+.issue-row:hover {
+  background: #f2f7ff;
+}
+
+.panes {
+  display: flex;
+  width: 100%;
+  height: calc(100vh - 330px);
+  min-height: 420px;
+}
+
+.pane {
+  background: #fff;
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  min-width: 220px;
+  overflow: hidden;
+}
+
+#left-pane { flex: 0 0 33%; }
+#middle-pane { flex: 0 0 34%; }
+#right-pane { flex: 1 1 auto; }
+
+.pane h3 {
+  margin: 0;
+  font-size: 14px;
+  padding: 8px;
+  border-bottom: 1px solid var(--line);
+  background: #f8fafc;
+}
+
+.splitter {
+  width: 8px;
+  cursor: col-resize;
+  background: linear-gradient(to right, #dde6f2 0%, #c8d6e8 50%, #dde6f2 100%);
+}
+
+.json-view {
+  flex: 1;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: Consolas, Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.4;
+  padding: 8px;
+}
+
+.pdf-toolbar {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 8px;
+  border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+
+#page-input {
+  width: 68px;
+}
+
+.pdf-scroll {
+  flex: 1;
+  overflow: auto;
+  background: #e9edf5;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 12px;
+}
+
+#pdf-canvas {
+  background: #fff;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.25);
+}
+
+.page-editor {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.page-text-label {
+  padding: 8px 8px 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.page-text {
+  margin: 0 8px 8px;
+  min-height: 90px;
+  max-height: 120px;
+  resize: vertical;
+  font-family: Consolas, Menlo, monospace;
+}
+
+.curated-editor {
+  flex: 1;
+  width: calc(100% - 16px);
+  margin: 0 8px;
+  resize: none;
+  font-family: Consolas, Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  overflow: auto;
+}
+
+.json-error {
+  min-height: 18px;
+  padding: 6px 8px;
+  margin: 4px 8px;
+  color: var(--warn);
+  font-family: Consolas, Menlo, monospace;
+  font-size: 12px;
+  white-space: pre-wrap;
+}
+
+.save-row {
+  padding: 8px;
+  border-top: 1px solid var(--line);
+}

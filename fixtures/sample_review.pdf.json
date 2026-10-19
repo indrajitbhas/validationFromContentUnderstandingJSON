@@ -1,0 +1,64 @@
+{
+  "pages": [
+    {
+      "pageNumber": 1,
+      "width": 8.5,
+      "height": 11.0,
+      "words": [
+        {
+          "content": "DECLASSIFIED",
+          "confidence": 0.98,
+          "span": {
+            "offset": 0,
+            "length": 12
+          }
+        },
+        {
+          "content": "Authority",
+          "confidence": 0.96,
+          "span": {
+            "offset": 13,
+            "length": 9
+          }
+        },
+        {
+          "content": "memo",
+          "confidence": 0.93,
+          "span": {
+            "offset": 23,
+            "length": 4
+          }
+        }
+      ]
+    },
+    {
+      "pageNumber": 2,
+      "width": 8.5,
+      "height": 11.0,
+      "words": [
+        {
+          "content": "SEAL",
+          "confidence": 0.4,
+          "span": {
+            "offset": 0,
+            "length": 4
+          }
+        },
+        {
+          "content": "faint",
+          "confidence": 0.78,
+          "span": {
+            "offset": 5,
+            "length": 5
+          }
+        }
+      ]
+    },
+    {
+      "pageNumber": 3,
+      "width": 8.5,
+      "height": 11.0,
+      "words": []
+    }
+  ]
+}
