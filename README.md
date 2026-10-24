@@ -67,6 +67,67 @@ pdf_review_tool/
       pdf.worker.mjs
 ```
 
+## Blob Storage mode (cloud)
+
+When deployed, the app stops reading from a local folder and instead uses **Azure Blob Storage**:
+
+| Container (defaults) | Contents |
+|---|---|
+| `pdfs` | source PDFs only (`<doc>.pdf`) |
+| `pdf-results` | analysis JSON for each PDF (`<doc>.json`), curated output written by the app (`<doc>.curated.json`) and timestamped `.bak` backups |
+
+Both containers are created automatically on startup if missing. The app keeps the exact same API and UI in either mode.
+
+Configuration (environment variables):
+
+```text
+# Connection-string auth (simple dev) — either of:
+PDF_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=...;...
+AZURE_STORAGE_CONNECTION_STRING=...
+
+# Managed-identity auth (recommended for App Service) — account name only:
+PDF_STORAGE_ACCOUNT=mystorageaccount
+
+# Optional container overrides:
+PDFS_CONTAINER=pdfs
+PDF_RESULTS_CONTAINER=pdf-results
+```
+
+When neither connection string nor account name is set, the app runs in local-folder mode
+(rooted at `BASE_FOLDER`, default: current directory).
+
+With `PDF_STORAGE_ACCOUNT`, auth uses `DefaultAzureCredential` (system-assigned managed
+identity on Azure App Service, `az login` cache locally).
+
+## Cloud deployment (Azure Functions, Linux consumption — free tier)
+
+```bash
+# Once, from this folder (deploy-ready):
+az functionapp create --name <app-name> --resource-group <rg> \
+  --consumption-plan-location westus --os-type Linux \
+  --runtime python --runtime-version 3.11 --functions-version 4 \
+  --storage-account <storage-account>   # uapstorage1
+
+# Settings + identity + RBAC (managed identity reads/writes blobs, no secrets):
+az functionapp config appsettings set --name <app-name> --resource-group <rg> \
+  --settings PDF_STORAGE_ACCOUNT=<storage-account>
+az functionapp identity assign --name <app-name> --resource-group <rg>
+az role assignment create --assignee <app-identity-principal-id> \
+  --role "Storage Blob Data Contributor" --scope <storage-account-id>
+
+# Deploy (zip of app.py, function_app.py, host.json, requirements.txt, templates/, static/):
+python -m zipfile -c deploy.zip app.py function_app.py host.json requirements.txt templates static
+az functionapp deployment source config-zip --name <app-name> \
+  --resource-group <rg> --src deploy.zip
+```
+
+The Flask app is served through `azure.functions.WsgiMiddleware` with a
+catch-all route; all endpoints (`/`, `/api/*`, `/static/*`) are identical to
+local mode. Consumption plan compute is covered by the free monthly grant
+(1M executions / 400k GB-s). Note the function runtime itself uses the given
+storage account for internal queues/tables, so a dedicated small account
+(if any) keeps that separate from your data.
+
 ## Windows (primary) — run locally
 
 Requirements:
