@@ -28,14 +28,14 @@
           <button id="load-server-doc">Load from server folder</button>
         </div>
 
-        <div class="row">
+        <div class="row ui-hidden">
           <label for="pdf-file">Open files fallback (browser picker):</label>
           <input id="pdf-file" type="file" accept="application/pdf" />
           <input id="json-file" type="file" accept="application/json" />
           <button id="load-picked-files">Load picked files</button>
         </div>
 
-        <div class="row picker-save">
+        <div class="row picker-save ui-hidden">
           <label for="picker-output-dir">Picker save output folder:</label>
           <input id="picker-output-dir" type="text" placeholder="Default: server base folder" />
           <label for="picker-output-file">Output file name (optional):</label>
@@ -153,7 +153,7 @@
           <div id="word-hint" class="word-hint word-hint-warn" hidden></div>
         </details>
 
-        <div id="curated-json-panel" class="pane-collapsible" data-pane-key="curated-json-panel">
+        <div id="curated-json-panel" class="pane-collapsible ui-hidden" data-pane-key="curated-json-panel">
           <button id="curated-json-toggle" class="pane-toggle" type="button" aria-expanded="true">
             <span class="chevron" aria-hidden="true">▾</span>
             <span>Curated JSON box</span>

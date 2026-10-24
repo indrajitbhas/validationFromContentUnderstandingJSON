@@ -115,6 +115,10 @@ body {
   display: none;
 }
 
+.ui-hidden {
+  display: none !important;
+}
+
 .row {
   display: flex;
   flex-wrap: wrap;
