@@ -13,7 +13,7 @@ from urllib.parse import quote
 
 from azure.identity import DefaultAzureCredential
 from azure.storage.blob import BlobServiceClient
-from flask import Flask, jsonify, render_template, request, send_file
+from flask import Flask, jsonify, make_response, render_template, request, send_file
 
 STORAGE_CONNECTION_STR_ENV = (
     "PDF_STORAGE_CONNECTION_STRING",
@@ -377,7 +377,9 @@ def create_app(storage: StorageBackend | None = None) -> Flask:
 
     @app.get("/")
     def index() -> str:
-        return render_template("index.html")
+        resp = make_response(render_template("index.html"))
+        resp.headers["Cache-Control"] = "no-cache"
+        return resp
 
     @app.get("/api/config")
     def config() -> Any:

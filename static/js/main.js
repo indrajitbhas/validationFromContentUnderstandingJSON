@@ -48,6 +48,7 @@ const state = {
   issues: [],
   baseFolder: "",
   analysisVisible: false,
+  pendingWordEdits: new Map(),
 };
 
 const el = {
@@ -85,6 +86,7 @@ const el = {
   wordList: document.getElementById("word-list"),
   wordCount: document.getElementById("word-count"),
   wordHint: document.getElementById("word-hint"),
+  wordUnsavedBanner: document.getElementById("word-unsaved-banner"),
   panes: document.getElementById("panes"),
   leftPane: document.getElementById("left-pane"),
   middlePane: document.getElementById("middle-pane"),
@@ -604,6 +606,11 @@ function renderWordList(page) {
       ? `confidence ${conf.toFixed(3)}${word?.original ? ` · original: ${word.original}` : ""}`
       : "no confidence value";
     input.style.width = `${Math.max(3, Math.min(22, input.value.length + 1))}ch`;
+    const pendingVal = state.pendingWordEdits.get(`${page.pageNumber}:${index}`);
+    if (pendingVal !== undefined) {
+      input.value = pendingVal;
+      input.style.width = `${Math.max(3, Math.min(22, pendingVal.length + 1))}ch`;
+    }
     item.appendChild(input);
 
     if (Number.isFinite(conf)) {
@@ -617,30 +624,65 @@ function renderWordList(page) {
   });
 }
 
-function applyWordEdit(index, newText) {
-  const page = getSelectedCuratedPage();
-  if (!page || !Array.isArray(page.words)) return;
+function commitWordEditToPage(page, index, newText) {
+  if (!page || !Array.isArray(page.words)) return false;
   const word = page.words[index];
-  if (!word) return;
+  if (!word) return false;
 
   const oldText = String(word.text ?? "");
-  if (oldText === newText) return;
+  if (oldText === newText) return false;
 
   const updatedText = replaceWordInPageText(page.text || "", page.words, index, newText);
   word.text = newText;
 
+  const isSelected = page === getSelectedCuratedPage();
   if (updatedText === null) {
-    el.wordHint.hidden = false;
-    el.wordHint.textContent =
-      "Word saved, but it could not be located in the page text (the text was edited " +
-      "manually). Update curated JSON directly if needed.";
+    if (isSelected) {
+      el.wordHint.hidden = false;
+      el.wordHint.textContent =
+        "Word saved, but it could not be located in the page text (the text was edited " +
+        "manually). Update curated JSON directly if needed.";
+    }
   } else {
     page.text = updatedText;
-    el.curPageText.value = updatedText;
-    el.wordHint.hidden = true;
-    el.wordHint.textContent = "";
+    if (isSelected) {
+      el.curPageText.value = updatedText;
+      el.wordHint.hidden = true;
+      el.wordHint.textContent = "";
+    }
+  }
+  return true;
+}
+
+function markWordEditsPending() {
+  if (el.wordUnsavedBanner) el.wordUnsavedBanner.hidden = false;
+  if (el.saveBtn) el.saveBtn.classList.add("save-dirty");
+}
+
+function clearWordEditsPending() {
+  state.pendingWordEdits.clear();
+  if (el.wordUnsavedBanner) el.wordUnsavedBanner.hidden = true;
+  if (el.saveBtn) el.saveBtn.classList.remove("save-dirty");
+}
+
+function recordPendingWordEdit(pageNumber, index, newText) {
+  const key = `${pageNumber}:${index}`;
+  const word = (state.curatedObj?.pages || [])
+    .find((p) => Number(p.pageNumber) === Number(pageNumber))
+    ?.words?.[index];
+  const committed = word ? String(word.text ?? "") : null;
+
+  if (committed === newText) {
+    state.pendingWordEdits.delete(key);
+    if (state.pendingWordEdits.size === 0) clearWordEditsPending();
+    return;
   }
 
+  state.pendingWordEdits.set(key, newText);
+  markWordEditsPending();
+}
+
+function finalizeCuratedAfterWordEdits() {
   if (!state.curatedObj.document) state.curatedObj.document = {};
   state.curatedObj.document.updatedAt = new Date().toISOString();
 
@@ -648,6 +690,32 @@ function applyWordEdit(index, newText) {
   el.curatedEditor.value = JSON.stringify(state.curatedObj, null, 2);
   validateCuratedEditor();
   recomputeIssues();
+}
+
+function applyPendingWordEdits() {
+  if (state.pendingWordEdits.size === 0) return false;
+
+  let appliedAny = false;
+  const curated = state.curatedObj;
+  const edits = Array.from(state.pendingWordEdits.entries());
+  for (const [key, newText] of edits) {
+    const sep = key.indexOf(":");
+    const pn = Number(key.slice(0, sep));
+    const index = Number(key.slice(sep + 1));
+    if (!Number.isInteger(pn) || !Number.isInteger(index)) continue;
+    const page = (Array.isArray(curated?.pages) ? curated.pages : []).find(
+      (p) => Number(p.pageNumber) === pn,
+    );
+    if (commitWordEditToPage(page, index, newText)) appliedAny = true;
+  }
+
+  clearWordEditsPending();
+  if (appliedAny) {
+    finalizeCuratedAfterWordEdits();
+    const page = getSelectedCuratedPage();
+    if (page) renderWordList(page);
+  }
+  return appliedAny;
 }
 
 function applyPageEditorToCurated() {
@@ -791,6 +859,7 @@ async function loadFromServerSelection() {
 
     el.rawJsonView.textContent = JSON.stringify(state.rawObj, null, 2);
     syncEditorFromCurated();
+    clearWordEditsPending();
     await loadPdfFromUrl(data.pdfUrl);
     recomputeIssues();
 
@@ -822,6 +891,7 @@ async function loadFromPickedFiles() {
 
     el.rawJsonView.textContent = JSON.stringify(state.rawObj, null, 2);
     syncEditorFromCurated();
+    clearWordEditsPending();
     await loadPdfFromBytes(pdfArrayBuffer);
     recomputeIssues();
 
@@ -835,6 +905,7 @@ async function loadFromPickedFiles() {
 }
 
 async function saveCurated() {
+  applyPendingWordEdits();
   if (!state.curatedValid) {
     setStatus("Save blocked: curated JSON is invalid.", "error");
     return;
@@ -979,7 +1050,9 @@ function hookEvents() {
     const index = Number(input.dataset.wordIndex);
     if (!Number.isInteger(index)) return;
     input.style.width = `${Math.max(3, Math.min(22, input.value.length + 1))}ch`;
-    applyWordEdit(index, input.value);
+    const page = getSelectedCuratedPage();
+    if (!page || typeof page.pageNumber === "undefined") return;
+    recordPendingWordEdit(page.pageNumber, index, input.value);
   });
 
   el.threshold.addEventListener("change", () => {
